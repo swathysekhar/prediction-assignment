@@ -17,9 +17,6 @@ When you click the **Knit** button a document will be generated that includes bo
 
 
 
-
-
-
 library(caret)
 library(dplyr)
 library(RCurl)
