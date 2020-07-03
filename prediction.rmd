@@ -1,108 +1,151 @@
-library(caret)
-library(rpart)
-library(rpart.plot)
-library(RColorBrewer)
-library(rattle)
+---
+title: "Prediction Assignment"
+author: "swathy"
+date: "3/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5)
+options(width=120)
+```
+
+## The Project
+
+
+The goal of this project is to predict the manner in which they did the exercise.
+
+## The Data
+
+The training data for this project are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+The test data are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+
+
+## Loading the Data & Libraries needed into R:
+
+```{r, echo=TRUE}
+library(lattice)
+library(ggplot2)
+library(plyr)
 library(randomForest)
+```
 
-## randomForest 4.6-12
-
-## Type rfNews() to see new features/changes/bug fixes.
-dt_training <- read.csv("C:/temp/pml-training.csv", na.strings=c("NA",""), strip.white=T)
-
+```{r, echo=TRUE}
+# Download the training data
+download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+              destfile = "./pml-training.csv")
+# Load the training dataset
+dt_training <- read.csv("./pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+# Download the testing data
+download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "./pml-testing.csv")
 # Load the testing dataset
-dt_testing <- read.csv("C:/temp/pml-testing.csv", na.strings=c("NA",""), strip.white=T)
+dt_testing <- read.csv("./pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
 
-##Data Cleansing
+## Cleaning the Data
 
+1. Remove all columns that contains NA and remove features that are not in the testing dataset.
+2. The testing dataset has no time-dependence, therefore these values are useless and can be disregarded.
+3. Also remove the first 7 features since they are related to the time-series or are not numeric.
+
+```{r, echo=TRUE}
 features <- names(dt_testing[,colSums(is.na(dt_testing)) == 0])[8:59]
-
 # Only use features used in testing cases.
 dt_training <- dt_training[,c(features,"classe")]
 dt_testing <- dt_testing[,c(features,"problem_id")]
-
 dim(dt_training); dim(dt_testing);
+```
+## Exploratory Data Analysis
 
-## [1] 19622    53
+1. Split data into a training data set (60% of the total cases) and a testing data set (40% of the total cases). This will allow us to estimate the out of sample error of our predictor.
 
-## [1] 20 53
-
-##Partitioning the Dataset
-
+```{r, echo=TRUE}
 set.seed(12345)
-
+library(caret)
 inTrain <- createDataPartition(dt_training$classe, p=0.6, list=FALSE)
 training <- dt_training[inTrain,]
 testing <- dt_training[-inTrain,]
-
 dim(training); dim(testing);
+```
 
-## [1] 11776    53
+## Model Selection: Decision Tree Model
 
-## [1] 7846   53
-
-##Building the Decision Tree Model
-
-
-modFitDT <- rpart(classe ~ ., data = training, method="class")
-fancyRpartPlot(modFitDT)
-
-##Predicting with the Decision Tree Model
-
+```{r, echo=TRUE}
 set.seed(12345)
+library(rpart)
+  
+```
 
-prediction <- predict(modFitDT, testing, type = "class")
-confusionMatrix(prediction, testing$class)
-
-## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1879  260   30   69   66
-##          B   56  759   88   34   54
-##          C  105  340 1226  354  234
-##          D  155  132   23  807   57
-##          E   37   27    1   22 1031
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.7267          
-##                  95% CI : (0.7167, 0.7366)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc > NIR] : < 2.2e-16       
-##                                           
-##                   Kappa : 0.6546          
-##  Mcnemar's Test P-Value : < 2.2e-16       
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.8418  0.50000   0.8962   0.6275   0.7150
-## Specificity            0.9243  0.96334   0.8405   0.9441   0.9864
-## Pos Pred Value         0.8155  0.76589   0.5427   0.6874   0.9222
-## Neg Pred Value         0.9363  0.88928   0.9746   0.9282   0.9389
-## Prevalence             0.2845  0.19347   0.1744   0.1639   0.1838
-## Detection Rate         0.2395  0.09674   0.1563   0.1029   0.1314
-## Detection Prevalence   0.2937  0.12631   0.2879   0.1496   0.1425
-## Balanced Accuracy      0.8831  0.73167   0.8684   0.7858   0.8507
-
-##Building the Random Forest Model
-
+```{r, echo=TRUE}
 set.seed(12345)
-modFitRF <- randomForest(classe ~ ., data = training, ntree = 1000)
+library(caret)
 
-##Predicting on the Testing Data (pml-testing.csv)
 
-predictionDT <- predict(modFitDT, dt_testing, type = "class")
-predictionDT
+library(caret)
+library(splines)
+library(parallel)
+library(gbm)
+library(randomForest)
+modFitRF <- randomForest(classe ~ ., data = training, method = "rf", importance = T, trControl = trainControl(method = "cv", classProbs=TRUE,savePredictions=TRUE,allowParallel=TRUE, number = 10))
+plot(modFitRF)
+```
 
-##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
-##  C  A  C  A  A  E  D  D  A  A  A  C  A  A  C  E  A  D  C  B 
-## Levels: A B C D E
+## Building the Boosting Model
 
-Random Forest Prediction
+```{r, echo=TRUE}
+modFitBoost <- train(classe ~ ., method = "gbm", data = training,
+                    verbose = F,
+                    trControl = trainControl(method = "cv", number = 10))
+modFitBoost
+plot(modFitBoost)
+```
 
-predictionRF <- predict(modFitRF, dt_testing, type = "class")
-##predictionRF
+## Predicting with the Random Forest Model
 
-##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
-##  B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+```{r, echo=TRUE}
+prediction <- predict(modFitRF, testing, type = "class")
+confusionMatrix(prediction, testing$classe)
+```
+
+## Predicting with the Boosting Model
+
+```{r, echo=TRUE}
+prediction <- predict(modFitBoost, testing)
+confusionMatrix(prediction, testing$classe)
+```
+
+### Predicting with the Testing Data
+```
+
+## Random Forest Prediction
+
+```{r, echo=TRUE}
+predictionRF <- predict(modFitRF, dt_testing)
+predictionRF
+```
+
+## Boosting Prediction
+
+```{r, echo=TRUE}
+predictionBoost <- predict(modFitBoost, dt_testing)
+predictionBoost
+```
+
+### Conclusion
+
+```{r, echo=TRUE}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(predictionRF)
+```
